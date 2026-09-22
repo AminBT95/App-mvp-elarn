@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const LinguaPathApp());
 
@@ -128,12 +129,37 @@ class _MainShellState extends State<MainShell> {
   late Future<Map<String, dynamic>> data;
   final Set<String> completed = {'introductions'};
   final Set<String> saved = {'Break the ice'};
+  final Set<String> downloads = {};
   bool premium = false;
 
   @override
   void initState() {
     super.initState();
     data = rootBundle.loadString('assets/data/catalog.json').then((value) => jsonDecode(value) as Map<String, dynamic>);
+    _restoreLocalState();
+  }
+
+  Future<void> _restoreLocalState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      completed
+        ..clear()
+        ..addAll(prefs.getStringList('completed') ?? ['introductions']);
+      saved
+        ..clear()
+        ..addAll(prefs.getStringList('saved') ?? ['Break the ice']);
+      downloads.addAll(prefs.getStringList('downloads') ?? []);
+      premium = prefs.getBool('premium') ?? false;
+    });
+  }
+
+  Future<void> _persistLocalState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('completed', completed.toList());
+    await prefs.setStringList('saved', saved.toList());
+    await prefs.setStringList('downloads', downloads.toList());
+    await prefs.setBool('premium', premium);
   }
 
   @override
@@ -144,11 +170,21 @@ class _MainShellState extends State<MainShell> {
         if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
         final catalog = snapshot.data!;
         final screens = [
-          HomeScreen(data: catalog, completed: completed, premium: premium, openCourse: openCourse),
+          HomeScreen(data: catalog, completed: completed, premium: premium, openCourse: openCourse, onNotifications: () => _push(const NotificationsScreen())),
           CoursesScreen(data: catalog, completed: completed, premium: premium, openCourse: openCourse),
-          PracticeScreen(data: catalog, onCompleted: () => setState(() {})),
-          PremiumScreen(active: premium, onActivate: () => setState(() => premium = true)),
-          ProfileScreen(arabic: widget.arabic, onLanguageChanged: widget.onLanguageChanged, completed: completed.length, saved: saved.length),
+          PracticeScreen(data: catalog, onCompleted: () => setState(() {}), onPlacement: () => _push(PlacementTestScreen(questions: List<Map<String, dynamic>>.from(catalog['questions'])))),
+          PremiumScreen(active: premium, onActivate: () { setState(() => premium = true); _persistLocalState(); }),
+          ProfileScreen(
+            arabic: widget.arabic,
+            onLanguageChanged: widget.onLanguageChanged,
+            completed: completed.length,
+            saved: saved.length,
+            openProgress: () => _push(ProgressScreen(completed: completed.length)),
+            openCertificates: () => _push(CertificatesScreen(eligible: completed.isNotEmpty)),
+            openSaved: () => _push(SavedScreen(items: saved)),
+            openDownloads: () => _push(DownloadsScreen(courses: List<Map<String, dynamic>>.from(catalog['courses']), downloaded: downloads, onToggle: (id) { setState(() => downloads.contains(id) ? downloads.remove(id) : downloads.add(id)); _persistLocalState(); })),
+            openReminders: () => _push(const ReminderSettingsScreen()),
+          ),
         ];
         return Scaffold(
           body: SafeArea(child: IndexedStack(index: index, children: screens)),
@@ -176,11 +212,13 @@ class _MainShellState extends State<MainShell> {
         course: course,
         premium: premium,
         completed: completed,
-        onComplete: (id) => setState(() => completed.add(id)),
+        onComplete: (id) { setState(() => completed.add(id)); _persistLocalState(); },
         onPremium: () { Navigator.pop(context); setState(() => index = 3); },
       ),
     )));
   }
+
+  void _push(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Directionality(textDirection: widget.arabic ? TextDirection.rtl : TextDirection.ltr, child: screen)));
 }
 
 class HomeScreen extends StatelessWidget {
@@ -188,7 +226,8 @@ class HomeScreen extends StatelessWidget {
   final Set<String> completed;
   final bool premium;
   final ValueChanged<Map<String, dynamic>> openCourse;
-  const HomeScreen({super.key, required this.data, required this.completed, required this.premium, required this.openCourse});
+  final VoidCallback onNotifications;
+  const HomeScreen({super.key, required this.data, required this.completed, required this.premium, required this.openCourse, required this.onNotifications});
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +235,7 @@ class HomeScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
       children: [
-        const Row(children: [BrandMark(), Spacer(), CircleAvatar(backgroundColor: Color(0xFFE8F0FF), child: Icon(Icons.notifications_none_rounded, color: brandBlue))]),
+        Row(children: [const BrandMark(), const Spacer(), IconButton.filledTonal(onPressed: onNotifications, icon: const Icon(Icons.notifications_none_rounded, color: brandBlue))]),
         const SizedBox(height: 28),
         const Text('Good evening, Lina 👋', style: TextStyle(color: muted, fontSize: 15)),
         const SizedBox(height: 6),
@@ -253,7 +292,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
     final all = List<Map<String, dynamic>>.from(widget.data['courses']);
     final courses = filter == 'All' ? all : all.where((c) => c['level'] == filter).toList();
     return ListView(padding: const EdgeInsets.fromLTRB(20, 18, 20, 30), children: [
-      const PageHeader(title: 'Courses', subtitle: 'Find the right path for your goal', trailing: Icon(Icons.search_rounded)),
+      PageHeader(title: 'Courses', subtitle: 'Find the right path for your goal', trailing: IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(data: widget.data, openCourse: widget.openCourse))), icon: const Icon(Icons.search_rounded))),
       const SizedBox(height: 22),
       SizedBox(height: 42, child: ListView(scrollDirection: Axis.horizontal, children: ['All','A1','A2','B1','B2','C1','C2'].map((f) => Padding(
         padding: const EdgeInsetsDirectional.only(end: 8),
@@ -377,7 +416,8 @@ class _LessonScreenState extends State<LessonScreen> {
 class PracticeScreen extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onCompleted;
-  const PracticeScreen({super.key, required this.data, required this.onCompleted});
+  final VoidCallback onPlacement;
+  const PracticeScreen({super.key, required this.data, required this.onCompleted, required this.onPlacement});
   @override
   Widget build(BuildContext context) {
     return ListView(padding: const EdgeInsets.fromLTRB(20, 18, 20, 30), children: [
@@ -408,7 +448,7 @@ class PracticeScreen extends StatelessWidget {
       const SizedBox(height: 24),
       const SectionTitle(title: 'Tests and review', action: ''),
       const SizedBox(height: 10),
-      const ActionTile(icon: Icons.assignment_rounded, title: 'Placement test', subtitle: 'Find your suggested starting level'),
+      ActionTile(icon: Icons.assignment_rounded, title: 'Placement test', subtitle: 'Find your suggested starting level', onTap: onPlacement),
       const ActionTile(icon: Icons.error_outline_rounded, title: 'Review mistakes', subtitle: '6 questions to revisit'),
       const ActionTile(icon: Icons.history_rounded, title: 'Attempt history', subtitle: 'See scores and explanations'),
     ]);
@@ -503,7 +543,12 @@ class ProfileScreen extends StatelessWidget {
   final ValueChanged<bool> onLanguageChanged;
   final int completed;
   final int saved;
-  const ProfileScreen({super.key, required this.arabic, required this.onLanguageChanged, required this.completed, required this.saved});
+  final VoidCallback openProgress;
+  final VoidCallback openCertificates;
+  final VoidCallback openSaved;
+  final VoidCallback openDownloads;
+  final VoidCallback openReminders;
+  const ProfileScreen({super.key, required this.arabic, required this.onLanguageChanged, required this.completed, required this.saved, required this.openProgress, required this.openCertificates, required this.openSaved, required this.openDownloads, required this.openReminders});
   @override
   Widget build(BuildContext context) {
     return ListView(padding: const EdgeInsets.fromLTRB(20, 18, 20, 30), children: [
@@ -515,19 +560,193 @@ class ProfileScreen extends StatelessWidget {
       const SizedBox(height: 24),
       const Text('Learning', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: ink)),
       const SizedBox(height: 10),
-      const ActionTile(icon: Icons.insights_rounded, title: 'Progress and results', subtitle: 'Courses, skills and test history'),
-      const ActionTile(icon: Icons.workspace_premium_outlined, title: 'Certificates', subtitle: 'View and download achievements'),
-      const ActionTile(icon: Icons.bookmark_border_rounded, title: 'Saved content', subtitle: 'Words, lessons and articles'),
-      const ActionTile(icon: Icons.download_outlined, title: 'Downloads', subtitle: 'Manage offline lessons'),
+      ActionTile(icon: Icons.insights_rounded, title: 'Progress and results', subtitle: 'Courses, skills and test history', onTap: openProgress),
+      ActionTile(icon: Icons.workspace_premium_outlined, title: 'Certificates', subtitle: 'View and download achievements', onTap: openCertificates),
+      ActionTile(icon: Icons.bookmark_border_rounded, title: 'Saved content', subtitle: 'Words, lessons and articles', onTap: openSaved),
+      ActionTile(icon: Icons.download_outlined, title: 'Downloads', subtitle: 'Manage offline lessons', onTap: openDownloads),
       const SizedBox(height: 20),
       const Text('Preferences', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: ink)),
       const SizedBox(height: 10),
       Card(child: SwitchListTile(value: arabic, onChanged: onLanguageChanged, secondary: const Icon(Icons.translate_rounded, color: brandBlue), title: const Text('Arabic interface', style: TextStyle(fontWeight: FontWeight.w700)), subtitle: const Text('واجهة عربية واتجاه من اليمين'))),
-      const ActionTile(icon: Icons.notifications_none_rounded, title: 'Study reminders', subtitle: 'Daily practice and Word of the Day'),
+      ActionTile(icon: Icons.notifications_none_rounded, title: 'Study reminders', subtitle: 'Daily practice and Word of the Day', onTap: openReminders),
       const ActionTile(icon: Icons.help_outline_rounded, title: 'Help and support', subtitle: 'FAQs, contact and report an issue'),
       const ActionTile(icon: Icons.shield_outlined, title: 'Privacy and account', subtitle: 'Terms, data and account deletion'),
     ]);
   }
+}
+
+class SearchScreen extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final ValueChanged<Map<String, dynamic>> openCourse;
+  const SearchScreen({super.key, required this.data, required this.openCourse});
+  @override
+  State<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends State<SearchScreen> {
+  String query = '';
+  @override
+  Widget build(BuildContext context) {
+    final courses = List<Map<String, dynamic>>.from(widget.data['courses']).where((c) => '${c['title']} ${c['category']} ${c['level']}'.toLowerCase().contains(query.toLowerCase())).toList();
+    final library = List<Map<String, dynamic>>.from(widget.data['library']).where((e) => '${e['title']} ${e['type']} ${e['level']}'.toLowerCase().contains(query.toLowerCase())).toList();
+    return Scaffold(appBar: AppBar(title: const Text('Search')), body: ListView(padding: const EdgeInsets.all(20), children: [
+      TextField(autofocus: true, onChanged: (value) => setState(() => query = value), decoration: InputDecoration(hintText: 'Courses, lessons, articles…', prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none))),
+      const SizedBox(height: 22),
+      Text('${courses.length + library.length} results', style: const TextStyle(color: muted, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 12),
+      if (courses.isEmpty && library.isEmpty) const EmptyState(icon: Icons.search_off_rounded, title: 'No results found', detail: 'Try a level, skill or broader keyword.'),
+      ...courses.map((course) => CourseCard(course: course, onTap: () { Navigator.pop(context); widget.openCourse(course); })),
+      ...library.map((item) => LibraryTile(item: item)),
+    ]));
+  }
+}
+
+class PlacementTestScreen extends StatefulWidget {
+  final List<Map<String, dynamic>> questions;
+  const PlacementTestScreen({super.key, required this.questions});
+  @override
+  State<PlacementTestScreen> createState() => _PlacementTestScreenState();
+}
+
+class _PlacementTestScreenState extends State<PlacementTestScreen> {
+  int step = -1;
+  int? selected;
+  int score = 0;
+  @override
+  Widget build(BuildContext context) {
+    if (step == -1) {
+      return Scaffold(appBar: AppBar(), body: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
+        const Spacer(),
+        const CircleAvatar(radius: 54, backgroundColor: Color(0xFFE8F0FF), child: Icon(Icons.route_rounded, size: 54, color: brandBlue)),
+        const SizedBox(height: 24),
+        const Text('Find your starting level', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: ink)),
+        const SizedBox(height: 12),
+        const Text('Answer 5 short questions. This gives a learning recommendation, not an official CEFR certificate.', textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.5)),
+        const Spacer(),
+        FilledButton(onPressed: () => setState(() => step = 0), child: const Text('Start placement test')),
+      ])));
+    }
+    if (step >= widget.questions.length) {
+      final level = score <= 1 ? 'A1' : score <= 3 ? 'A2' : 'B1';
+      return Scaffold(appBar: AppBar(), body: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
+        const Spacer(),
+        const Icon(Icons.auto_graph_rounded, size: 74, color: brandBlue),
+        const SizedBox(height: 22),
+        const Text('Suggested starting point', style: TextStyle(fontSize: 20, color: muted)),
+        const SizedBox(height: 8),
+        Text(level, style: const TextStyle(fontSize: 62, fontWeight: FontWeight.w900, color: brandBlue)),
+        Text('$score/${widget.questions.length} correct answers', style: const TextStyle(color: muted)),
+        const SizedBox(height: 20),
+        const Text('You can freely explore any level and change your learning path later.', textAlign: TextAlign.center, style: TextStyle(color: ink, height: 1.5)),
+        const Spacer(),
+        FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Explore recommended courses')),
+      ])));
+    }
+    final q = widget.questions[step];
+    final options = List<String>.from(q['options']);
+    return Scaffold(appBar: AppBar(title: const Text('Placement test')), body: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      LinearProgressIndicator(value: (step + 1) / widget.questions.length, minHeight: 8, borderRadius: BorderRadius.circular(8)),
+      const SizedBox(height: 34),
+      Text(q['question'], style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: ink)),
+      const SizedBox(height: 22),
+      ...options.asMap().entries.map((e) => Padding(padding: const EdgeInsets.only(bottom: 10), child: RadioListTile<int>(value: e.key, groupValue: selected, onChanged: (v) => setState(() => selected = v), title: Text(e.value, style: const TextStyle(fontWeight: FontWeight.w700)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: selected == e.key ? brandBlue : const Color(0xFFDDE3EC), width: selected == e.key ? 2 : 1)), tileColor: Colors.white))),
+      const Spacer(),
+      FilledButton(onPressed: selected == null ? null : () => setState(() { if (selected == q['answer']) score++; step++; selected = null; }), child: const Text('Next')),
+    ])));
+  }
+}
+
+class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Notifications')), body: ListView(padding: const EdgeInsets.all(20), children: const [
+    ActionTile(icon: Icons.wb_sunny_outlined, title: 'Your daily word is ready', subtitle: 'Learn “resilient” and save it for review'),
+    ActionTile(icon: Icons.bolt_rounded, title: 'Keep your 7-day streak', subtitle: 'Your daily practice takes about 5 minutes'),
+    ActionTile(icon: Icons.menu_book_rounded, title: 'Continue your lesson', subtitle: 'My daily routine · 35% completed'),
+    ActionTile(icon: Icons.new_releases_outlined, title: 'New Business English lesson', subtitle: 'Clear professional emails is now available'),
+  ]));
+}
+
+class ProgressScreen extends StatelessWidget {
+  final int completed;
+  const ProgressScreen({super.key, required this.completed});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Progress and results')), body: ListView(padding: const EdgeInsets.all(20), children: [
+    Container(padding: const EdgeInsets.all(22), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1658E8), Color(0xFF397CFF)]), borderRadius: BorderRadius.circular(24)), child: Column(children: [const Text('GENERAL ENGLISH A1', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)), const SizedBox(height: 10), Text('$completed lessons', style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900)), const SizedBox(height: 14), LinearProgressIndicator(value: (completed / 10).clamp(0.0, 1.0).toDouble(), minHeight: 8, color: Colors.white, backgroundColor: Colors.white24, borderRadius: BorderRadius.circular(8))])),
+    const SizedBox(height: 22),
+    const SectionTitle(title: 'Skills overview', action: ''),
+    const SizedBox(height: 12),
+    const ProgressSkill(label: 'Reading', value: .72, color: brandBlue),
+    const ProgressSkill(label: 'Vocabulary', value: .58, color: Color(0xFF7357FF)),
+    const ProgressSkill(label: 'Grammar', value: .46, color: Color(0xFF00A6A6)),
+    const ProgressSkill(label: 'Listening', value: .34, color: Color(0xFFF3A12B)),
+    const SizedBox(height: 20),
+    const ActionTile(icon: Icons.history_rounded, title: 'Recent activity', subtitle: '3 lessons and 2 practice sessions this week'),
+    const ActionTile(icon: Icons.emoji_events_outlined, title: '7-day study streak', subtitle: 'Your longest streak is 12 days'),
+  ]));
+}
+
+class ProgressSkill extends StatelessWidget {
+  final String label; final double value; final Color color;
+  const ProgressSkill({super.key, required this.label, required this.value, required this.color});
+  @override
+  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Column(children: [Row(children: [Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))), Text('${(value * 100).round()}%', style: TextStyle(color: color, fontWeight: FontWeight.w900))]), const SizedBox(height: 7), LinearProgressIndicator(value: value, minHeight: 8, color: color, backgroundColor: const Color(0xFFE6EBF3), borderRadius: BorderRadius.circular(8))]));
+}
+
+class CertificatesScreen extends StatelessWidget {
+  final bool eligible;
+  const CertificatesScreen({super.key, required this.eligible});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Certificates')), body: Padding(padding: const EdgeInsets.all(20), child: eligible ? ListView(children: [
+    Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFB9CCF3), width: 2)), child: const Column(children: [BrandMark(), SizedBox(height: 25), Text('CERTIFICATE OF COMPLETION', style: TextStyle(color: brandBlue, fontSize: 12, letterSpacing: 1.8, fontWeight: FontWeight.w900)), SizedBox(height: 18), Text('Lina Amrani', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900, color: ink)), SizedBox(height: 7), Text('has completed the introductory module of', textAlign: TextAlign.center, style: TextStyle(color: muted)), SizedBox(height: 12), Text('General English A1', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: ink)), SizedBox(height: 22), Divider(), SizedBox(height: 12), Text('LP-DEMO-2026-001 · Demonstration record', style: TextStyle(fontSize: 11, color: muted))])),
+    const SizedBox(height: 18),
+    FilledButton.icon(onPressed: null, icon: Icon(Icons.picture_as_pdf_outlined), label: Text('PDF export in production phase')),
+  ]) : const EmptyState(icon: Icons.workspace_premium_outlined, title: 'No certificate yet', detail: 'Complete an eligible course to unlock its certificate.')));
+}
+
+class SavedScreen extends StatelessWidget {
+  final Set<String> items;
+  const SavedScreen({super.key, required this.items});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Saved content')), body: items.isEmpty ? const EmptyState(icon: Icons.bookmark_border_rounded, title: 'Nothing saved yet', detail: 'Save words, lessons and articles to find them here.') : ListView(padding: const EdgeInsets.all(20), children: items.map((item) => ActionTile(icon: Icons.bookmark_rounded, title: item, subtitle: 'Saved vocabulary · Review today')).toList()));
+}
+
+class DownloadsScreen extends StatelessWidget {
+  final List<Map<String, dynamic>> courses;
+  final Set<String> downloaded;
+  final ValueChanged<String> onToggle;
+  const DownloadsScreen({super.key, required this.courses, required this.downloaded, required this.onToggle});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Offline downloads')), body: ListView(padding: const EdgeInsets.all(20), children: [
+    Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFFEAF1FF), borderRadius: BorderRadius.circular(16)), child: const Row(children: [Icon(Icons.offline_bolt_rounded, color: brandBlue), SizedBox(width: 10), Expanded(child: Text('Downloaded courses remain available without internet in this local MVP.', style: TextStyle(color: ink, height: 1.4)))])),
+    const SizedBox(height: 18),
+    ...courses.map((course) { final active = downloaded.contains(course['id']); return Card(child: ListTile(contentPadding: const EdgeInsets.all(14), leading: CircleAvatar(backgroundColor: const Color(0xFFE8F0FF), child: Icon(active ? Icons.download_done_rounded : Icons.download_outlined, color: brandBlue)), title: Text(course['title'], style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text('${course['lessons'].length} lessons · approx. ${8 + course['lessons'].length * 3} MB'), trailing: Switch(value: active, onChanged: (_) => onToggle(course['id'])))); }),
+  ]));
+}
+
+class ReminderSettingsScreen extends StatefulWidget {
+  const ReminderSettingsScreen({super.key});
+  @override
+  State<ReminderSettingsScreen> createState() => _ReminderSettingsScreenState();
+}
+
+class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
+  bool practice = true; bool dailyWord = true; bool course = false;
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Study reminders')), body: ListView(padding: const EdgeInsets.all(20), children: [
+    SwitchListTile(value: practice, onChanged: (v) => setState(() => practice = v), title: const Text('Daily practice', style: TextStyle(fontWeight: FontWeight.w800)), subtitle: const Text('Every day at 19:00'), secondary: const Icon(Icons.bolt_rounded, color: brandBlue)),
+    SwitchListTile(value: dailyWord, onChanged: (v) => setState(() => dailyWord = v), title: const Text('Word of the Day', style: TextStyle(fontWeight: FontWeight.w800)), subtitle: const Text('Every morning at 09:00'), secondary: const Icon(Icons.wb_sunny_outlined, color: Color(0xFFF3A12B))),
+    SwitchListTile(value: course, onChanged: (v) => setState(() => course = v), title: const Text('Course updates', style: TextStyle(fontWeight: FontWeight.w800)), subtitle: const Text('New lessons and content'), secondary: const Icon(Icons.menu_book_rounded, color: Color(0xFF7357FF))),
+    const SizedBox(height: 16),
+    const Text('These preferences are demonstrated locally. Scheduled device notifications are added before store release.', style: TextStyle(color: muted, height: 1.5)),
+  ]));
+}
+
+class EmptyState extends StatelessWidget {
+  final IconData icon; final String title; final String detail;
+  const EmptyState({super.key, required this.icon, required this.title, required this.detail});
+  @override
+  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(36), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 58, color: const Color(0xFF9DB6E8)), const SizedBox(height: 16), Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: ink)), const SizedBox(height: 8), Text(detail, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.5))])));
 }
 
 class BrandMark extends StatelessWidget {
@@ -632,9 +851,10 @@ class SkillCard extends StatelessWidget {
 
 class ActionTile extends StatelessWidget {
   final IconData icon; final String title; final String subtitle;
-  const ActionTile({super.key, required this.icon, required this.title, required this.subtitle});
+  final VoidCallback? onTap;
+  const ActionTile({super.key, required this.icon, required this.title, required this.subtitle, this.onTap});
   @override
-  Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7), leading: CircleAvatar(backgroundColor: const Color(0xFFEAF1FF), child: Icon(icon, color: brandBlue)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(subtitle), trailing: const Icon(Icons.chevron_right_rounded)));
+  Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(onTap: onTap, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7), leading: CircleAvatar(backgroundColor: const Color(0xFFEAF1FF), child: Icon(icon, color: brandBlue)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(subtitle), trailing: const Icon(Icons.chevron_right_rounded)));
 }
 
 class Benefit extends StatelessWidget {

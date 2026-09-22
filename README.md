@@ -11,6 +11,11 @@ Local-first Flutter demonstration app based on the LinguaPath product specificat
 - Lesson reader with audio UI, Arabic support, vocabulary cards and completion flow
 - Daily quiz with feedback, scoring and result dialog
 - Local Premium demonstration state
+- Persistent local progress, Premium state, saved items and downloads
+- Search across courses and library content
+- Placement test with a suggested A1-B1 starting point
+- Notifications centre and reminder preferences
+- Progress dashboard, certificate preview, saved content and offline management
 - Responsive Material 3 interface inspired by the supplied blue, white and black designs
 - GitHub Actions release APK build
 

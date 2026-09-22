@@ -93,6 +93,20 @@
       "lessons": [
         {"id":"lesson-planning","title":"Planning effective lessons","duration":"24 min","type":"Teacher Development","premium":true,"blocks":[{"type":"heading","text":"From objective to activity"},{"type":"text","text":"A good lesson aligns its objective, practice and evidence of learning."}]}
       ]
+    },
+    {
+      "id": "mastery-c2",
+      "title": "English Mastery C2",
+      "subtitle": "Nuance, rhetoric and advanced comprehension",
+      "level": "C2",
+      "category": "General English",
+      "icon": "school",
+      "color": "1E3A8A",
+      "premium": true,
+      "lessons": [
+        {"id":"rhetorical-nuance","title":"Rhetorical nuance","duration":"28 min","type":"Reading","premium":true,"blocks":[{"type":"heading","text":"Read beyond the literal meaning"},{"type":"text","text":"Advanced readers identify stance, implication, register and rhetorical purpose across a complete text."}]},
+        {"id":"precision-writing","title":"Precision in advanced writing","duration":"30 min","type":"Writing","premium":true,"blocks":[{"type":"heading","text":"Choose language deliberately"},{"type":"text","text":"Refine arguments through accurate qualification, cohesion and controlled emphasis."}]}
+      ]
     }
   ],
   "library": [
