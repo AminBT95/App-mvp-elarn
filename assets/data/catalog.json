@@ -1,0 +1,111 @@
+{
+  "courses": [
+    {
+      "id": "general-a1",
+      "title": "General English A1",
+      "subtitle": "Build strong everyday foundations",
+      "level": "A1",
+      "category": "General English",
+      "icon": "school",
+      "color": "246BFD",
+      "premium": false,
+      "lessons": [
+        {
+          "id": "introductions",
+          "title": "Introductions & greetings",
+          "duration": "12 min",
+          "type": "Communication",
+          "premium": false,
+          "blocks": [
+            {"type": "heading", "text": "Meeting someone new"},
+            {"type": "text", "text": "Hello! My name is Lina. I am from Morocco. Nice to meet you."},
+            {"type": "translation", "text": "مرحباً! اسمي لينا. أنا من المغرب. سعيدة بلقائك."},
+            {"type": "vocabulary", "text": "Nice to meet you", "note": "A friendly phrase used after an introduction."},
+            {"type": "tip", "text": "Use “I am” for nationality and “I live in” for your city."}
+          ]
+        },
+        {
+          "id": "daily-routine",
+          "title": "My daily routine",
+          "duration": "15 min",
+          "type": "Reading",
+          "premium": false,
+          "blocks": [
+            {"type": "heading", "text": "A busy morning"},
+            {"type": "text", "text": "I wake up at seven o’clock. I have breakfast, get dressed and go to work by bus."},
+            {"type": "translation", "text": "أستيقظ في الساعة السابعة. أتناول الإفطار وأرتدي ملابسي وأذهب إلى العمل بالحافلة."},
+            {"type": "vocabulary", "text": "wake up", "note": "to stop sleeping"}
+          ]
+        },
+        {"id": "family", "title": "Family and friends", "duration": "14 min", "type": "Vocabulary", "premium": true, "blocks": [{"type":"heading","text":"People around us"},{"type":"text","text":"Learn to describe your family, friends and relationships."}]}
+      ]
+    },
+    {
+      "id": "grammar-a2",
+      "title": "Essential Grammar A2",
+      "subtitle": "Speak and write with confidence",
+      "level": "A2",
+      "category": "Grammar",
+      "icon": "menu_book",
+      "color": "7357FF",
+      "premium": false,
+      "lessons": [
+        {"id":"past-simple","title":"The past simple","duration":"18 min","type":"Grammar","premium":false,"blocks":[{"type":"heading","text":"Talking about completed actions"},{"type":"text","text":"We use the past simple for finished actions in the past: I visited London last year."},{"type":"tip","text":"Regular verbs usually end in -ed."}]},
+        {"id":"comparatives","title":"Comparatives","duration":"16 min","type":"Grammar","premium":true,"blocks":[{"type":"heading","text":"Compare people and things"},{"type":"text","text":"This book is easier than that one."}]}
+      ]
+    },
+    {
+      "id": "business-b1",
+      "title": "Business English",
+      "subtitle": "Meetings, emails and presentations",
+      "level": "B1",
+      "category": "Business",
+      "icon": "business_center",
+      "color": "00A6A6",
+      "premium": true,
+      "lessons": [
+        {"id":"meetings","title":"Leading a meeting","duration":"20 min","type":"Communication","premium":true,"blocks":[{"type":"heading","text":"Open a meeting professionally"},{"type":"text","text":"Good morning everyone. Let’s begin by reviewing today’s agenda."}]},
+        {"id":"emails","title":"Clear professional emails","duration":"22 min","type":"Writing","premium":true,"blocks":[{"type":"heading","text":"Write with purpose"},{"type":"text","text":"Use a clear subject line, concise paragraphs and a specific call to action."}]}
+      ]
+    },
+    {
+      "id": "ielts-b2",
+      "title": "IELTS Preparation",
+      "subtitle": "Strategies and realistic practice",
+      "level": "B2",
+      "category": "IELTS",
+      "icon": "workspace_premium",
+      "color": "F3A12B",
+      "premium": true,
+      "lessons": [
+        {"id":"ielts-reading","title":"Reading: matching headings","duration":"25 min","type":"IELTS Reading","premium":true,"blocks":[{"type":"heading","text":"Read for the main idea"},{"type":"text","text":"Focus on the purpose of each paragraph before looking at individual words."}]}
+      ]
+    },
+    {
+      "id": "tefl-c1",
+      "title": "TEFL Essentials",
+      "subtitle": "Practical teaching foundations",
+      "level": "C1",
+      "category": "TEFL",
+      "icon": "co_present",
+      "color": "EB5578",
+      "premium": true,
+      "lessons": [
+        {"id":"lesson-planning","title":"Planning effective lessons","duration":"24 min","type":"Teacher Development","premium":true,"blocks":[{"type":"heading","text":"From objective to activity"},{"type":"text","text":"A good lesson aligns its objective, practice and evidence of learning."}]}
+      ]
+    }
+  ],
+  "library": [
+    {"title":"Why habits beat motivation","type":"Article","level":"B1","time":"5 min read","color":"246BFD"},
+    {"title":"A journey through Marrakech","type":"Short story","level":"A2","time":"7 min read","color":"EB5578"},
+    {"title":"Break the ice","type":"Idiom","level":"B1","time":"2 min","color":"00A6A6"},
+    {"title":"Look forward to","type":"Phrasal verb","level":"A2","time":"2 min","color":"7357FF"}
+  ],
+  "questions": [
+    {"question":"Choose the correct greeting.","options":["Nice to meet you","Nice meet you","Meet nice you"],"answer":0,"explanation":"“Nice to meet you” is the natural expression after an introduction."},
+    {"question":"I ___ up at seven every day.","options":["wake","wakes","woke"],"answer":0,"explanation":"Use the base form with “I” in the present simple."},
+    {"question":"Which sentence is in the past simple?","options":["I visit London","I visited London","I am visiting London"],"answer":1,"explanation":"“Visited” is the regular past form of “visit”."},
+    {"question":"A concise email is…","options":["clear and brief","very informal","without a subject"],"answer":0,"explanation":"Professional emails should be clear, brief and purposeful."},
+    {"question":"What should you identify first in IELTS matching headings?","options":["Every unknown word","The paragraph’s main idea","The longest sentence"],"answer":1,"explanation":"The heading represents the paragraph’s central idea."}
+  ]
+}
