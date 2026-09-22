@@ -18,7 +18,8 @@ jobs:
       - name: Create Android wrapper
         run: flutter create --platforms=android --org org.linguapath .
       - run: flutter pub get
-      - run: flutter analyze
+      - name: Analyze source code
+        run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4

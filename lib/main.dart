@@ -220,10 +220,10 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 24),
         const SectionTitle(title: 'Today’s plan', action: 'View all'),
         const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: StatCard(icon: Icons.bolt_rounded, color: const Color(0xFFF3A12B), value: '5', label: 'Daily practice')),
-          const SizedBox(width: 12),
-          Expanded(child: StatCard(icon: Icons.local_fire_department_rounded, color: const Color(0xFFEB5578), value: '7 days', label: 'Study streak')),
+        const Row(children: [
+          Expanded(child: StatCard(icon: Icons.bolt_rounded, color: Color(0xFFF3A12B), value: '5', label: 'Daily practice')),
+          SizedBox(width: 12),
+          Expanded(child: StatCard(icon: Icons.local_fire_department_rounded, color: Color(0xFFEB5578), value: '7 days', label: 'Study streak')),
         ]),
         const SizedBox(height: 24),
         const SectionTitle(title: 'Recommended for you', action: 'Explore'),
